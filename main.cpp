@@ -9,16 +9,17 @@ class MAP {
 public:
     MAP () : my_size(0), tab(new node*[16]) {};
 
-    MAP (const MAP& other)  {
-        my_size = other.size();
-        tab = other.get_tab();
+    MAP (const MAP& other) {
+        my_size = other.my_size;
+        tab = other.tab;
     }
 
     size_t size() noexcept {
         return my_size;
     }
 
-protected:
+private:
+
     typedef struct node {
         K key;
         V val;
@@ -29,17 +30,12 @@ protected:
 
     using tab_ptr = std::shared_ptr<node*[]>;
 
-    tab_ptr get_tab() {
-        return tab;
-    }
-
-private:
-
     size_t my_size;
     tab_ptr tab;
-
 };
 
 int main() {
+    MAP<int, int> m1;
+    MAP<int, int> m2(m1);
 
 }
