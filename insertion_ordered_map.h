@@ -33,9 +33,3 @@ private:
     size_t my_size;
     tab_ptr tab;
 };
-
-int main() {
-    MAP<int, int> m1;
-    MAP<int, int> m2(m1);
-
-}
