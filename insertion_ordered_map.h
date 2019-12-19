@@ -33,4 +33,59 @@ private:
 
     size_t my_size;
     tab_ptr tab;
+
+
+    class iterator {
+    public:
+        iterator(): ptr_(0) {}
+
+        iterator(node* it): ptr_(it) {}
+
+        V operator* () { return ptr_ -> val; }
+
+        iterator& operator++() {
+            ptr_ = ptr_ -> link;
+            return *this;
+        }
+
+        bool operator== ( const iterator& it ) {
+            if (ptr_ == it.ptr_)
+                return true;
+
+            return false;
+        }
+
+        bool operator!= (const iterator& it) {
+            return !(*this == it);
+        }
+
+        iterator& operator= (const iterator& it) {
+            ptr_ = it.ptr_;
+
+            return *this;
+        }
+
+        iterator& begin() {
+            return begin_;
+        }
+
+        iterator& end() {
+            return end_;
+        }
+
+        static void setBegin(node *begin) {
+            begin_ = begin;
+        }
+
+        static void setEnd(node *end) {
+            end_ = end;
+        }
+
+    private:
+        node* ptr_;
+
+        static node* begin_;
+
+        static node* end_;
+    };
 };
