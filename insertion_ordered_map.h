@@ -7,7 +7,7 @@
 template <class K, class V, class Hash = std::hash<K>>
 class MAP {
 public:
-    MAP () : my_size(0), tab(new node*[16]) {};
+    MAP () : my_size(0), tab(new node_ptr[16]) {};
 
     MAP (const MAP& other) {
         my_size = other.my_size;
@@ -28,7 +28,8 @@ private:
         node * back_link;
     } node;
 
-    using tab_ptr = std::shared_ptr<node*[]>;
+    using node_ptr = std::shared_ptr<node>;
+    using tab_ptr = std::shared_ptr<node_ptr[]>;
 
     size_t my_size;
     tab_ptr tab;
