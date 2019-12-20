@@ -22,10 +22,10 @@ public:
         node_ptr link;
         node_ptr back_link;
 
-        node (const node& other, node_ptr previous)
-                : hash(other.hash)
-                , key(other.key)
-                , val(other.val)
+        node (const node_ptr& other, node_ptr previous)
+                : hash(other -> hash)
+                , key(other -> key)
+                , val(other -> val)
                 , next(nullptr)
                 , link(nullptr)
                 , back_link(previous)
@@ -41,6 +41,8 @@ public:
                 , hash(hash)
         {}
 
+        explicit node (size_t hash) : hash(hash) {}
+
     } node;
 
     MAP ()
@@ -48,7 +50,12 @@ public:
             , tab(new node_ptr[16])
             , given_reference(false)
             , mod(16)
-    {}
+    {
+        node_ptr n(new node(0));
+        n -> link = n;
+        n -> back_link = n;
+        end_= iterator(n);
+    }
 
     MAP (const MAP& other) : mod(other.mod) {
         my_size = other.my_size;
@@ -69,6 +76,7 @@ public:
     {
         other.tab = nullptr;
         other.my_size = 0;
+        end_ = other.end();
     }
 
     size_t size() noexcept {
@@ -83,25 +91,25 @@ public:
         node_ptr n = findNode(k);
 
         if (n == nullptr) {
-            std::cout << "lookup_error";
+            throw "lookup_error";
         } else {
             checkSize();
-            if (begin()->first == k) {
-                n->link->back_link = nullptr;
-                begin_ = new iterator(*(n->link));
-                n.reset();
+            n->back_link->link = n->link;
+            n->link->back_link = n->back_link;
 
-            } else if (end()->first == k) {
-                n->back_link->link = nullptr;
-                end_ = new iterator(*(n->back_link));
-                n.reset();
-
+            size_t kHash = Hash{}(k);
+            node_ptr n2 = tab[kHash];
+            if (n2 == n) {
+                tab[kHash] = n->next;
             } else {
-                n->back_link->link = n->link;
-                n->link->back_link = n->back_link;
-                n.reset();
+                while (n2->next && n2->next != n) {
+                    n2 = n2->next;
+                }
+                n2->next = n2->next->next;
             }
-            -- my_size;
+            n.reset();
+            --my_size;
+            given_reference = false;
         }
     }
 
@@ -150,40 +158,57 @@ public:
         }
     }
 
+
     void insert(const K& k, const V& v) {
+
         checkSize();
+
         if (tab.use_count() > 1) {
-            tab_ptr t = new node_ptr[mod];
+            //std::cout << "test\n";
+            tab_ptr t(new node_ptr[mod]);
             hashedMapCopy(t, mod, false);
             tab = t;
         }
+
         node_ptr n = findNode(k);
+
         if (n != nullptr) {
             n -> link -> back_link = n -> back_link;
-            n -> back_link -> link = n -> link;
-            n -> link = end();
-            n -> back_link = (*end()) -> back_link;
-            (*(end())) -> back_link -> link = n;
-            (*(end())) -> back_link = n;
+            n->back_link->link = n->link;
+            n->back_link = end().getPtr()->back_link;
+            n -> link = end().getPtr();
+            end().getPtr() -> back_link -> link = n;
+            end().getPtr() -> back_link = n;
         } else {
-            n = new node(k, v, nullptr, *(end()),
-                         (*(end())) -> back_link, Hash(k)%mod);
-            (*(end())) -> back_link -> link = n;
-            (*(end())) -> back_link = n;
-            addNode(n, n -> hash, tab);
+            my_size++;
+            node_ptr n2(new node(k, v, nullptr, end().getPtr(),
+                         end().getPtr() -> back_link,
+                         Hash{}(k)%mod));
+            n2 -> link = end().getPtr();
+
+            n2 -> back_link = end().getPtr() -> back_link;
+            n2 -> back_link -> link = n2;
+            n2 -> link -> back_link = n2;
+            addNode(n2, n2 -> hash, tab);
         }
+        assert(contains(k));
+        given_reference = false;
     }
 
     V& at(K const& k) {
-        size_t kHash = Hash(k) % mod;
-        node_ptr n = tab[kHash];
-        while (n != nullptr) {
-            if (n -> key == k) {
-                given_reference = true;
-                return *(n.get());
+        node_ptr n = findNode(k);
+        if (n == nullptr) {
+            throw "lookup_error";
+        } else {
+            if (tab.use_count() > 1) {
+                //std::cout << "test\n";
+                tab_ptr t(new node_ptr[mod]);
+                hashedMapCopy(t, mod, false);
+                tab = t;
             }
+            given_reference = true;
+            return n -> val;
         }
-        throw "lookup_error";
     }
 
     V const& at(K const& k) const {
@@ -205,14 +230,12 @@ public:
     public:
         iterator(): ptr_(0) {}
 
-        //ten konstruktor kopiujący przyjmuje jako argument node_ptr, a nie iterator
-        //Czy to na pewno zadziała? Bo begin() i end() zwracają obiekt klasy iterator
         iterator(const iterator& it): ptr_(it.ptr_) {}
 
-        explicit iterator(const node_ptr& ptr_): ptr_(ptr_) {}
+        explicit iterator(node_ptr& node) : ptr_(node) {};
 
         const std::pair<K&, V&> operator* () {
-            return std::make_pair(ptr_ -> key, ptr_ -> val);
+            return std::pair<K&, V&>(ptr_ -> key, ptr_ -> val);
         }
 
         iterator& operator++() {
@@ -228,24 +251,24 @@ public:
             return !(*this == it);
         }
 
-        const node_ptr &getPtr() const {
+        const node_ptr& getPtr() const {
             return ptr_;
         }
 
     private:
+
         node_ptr ptr_;
+
     };
 
     iterator& begin() {
+        begin_ = iterator(end_.getPtr() -> link);
         return begin_;
     }
 
     iterator& end() {
         return end_;
     }
-
-
-
 
 private:
 
@@ -258,8 +281,8 @@ private:
     size_t mod;
     tab_ptr tab;
     bool given_reference;
-    iterator begin_;
     iterator end_;
+    iterator begin_;
 
 
     void addNode(node_ptr& node, size_t hash, tab_ptr& new_tab) {
@@ -275,29 +298,10 @@ private:
         node -> next = nullptr;
     }
 
-    //simpleCopyOfMap requires table of size at least equal to other.mod
-    //this function seems to be redundant
-    /*  void simpleMapCopy(const MAP& other, tab_ptr& new_tab) {
-          node_ptr previous = nullptr;
-          for (iterator it = iterator::begin(); it != iterator::end(); it++) {
-              node_ptr new_node(*it, previous);
-              if (previous != nullptr)
-                  previous -> link = new_node;
-              else
-                  iterator::setBegin(new_node);
-              addNode(new_node, new_node -> hash, new_tab);
-              previous = new_node;
-          }
-          previous -> link = node(previous, previous);
-          previous -> link -> link = nullptr;
-          iterator::setEnd(previous -> link);
-      }
-  */
     void createResizedMap(unsigned p, unsigned q) {
         mod *= p;
         mod /= q;
-        tab_ptr tab_n = new node_ptr [mod];
-        //simpleMapCopy(*this, tab_n);
+        tab_ptr tab_n(new node_ptr[mod]);
         hashedMapCopy(tab_n, mod, true);
 
         tab.reset();
@@ -307,7 +311,7 @@ private:
     void checkSize() {
         if (my_size >= mod*3/4) {
             createResizedMap(2, 1);
-        } else if (my_size <= mod/10) {
+        } else if (mod >= 32 && my_size <= mod/10) {
             createResizedMap(1, 2);
         }
     }
@@ -317,25 +321,25 @@ private:
     //correctly set, so begin() and end() methods works properly for the new_tab
     //after function calling.
     void hashedMapCopy(tab_ptr& new_tab, size_t mod, bool rehash) {
-        node_ptr previous = nullptr;
-        for (iterator it = iterator::begin(); it != iterator::end(); it++) {
-            node_ptr new_node = new node(*it, previous);
+        node_ptr previous(new node(0));
+        iterator end_it = iterator(previous);
+        for (iterator it = begin(); it != end(); ++it) {
+            node_ptr new_node(new node(it.getPtr(), previous));
             if (rehash) {
-                new_node -> hash = Hash(new_node -> key)%mod;
+                new_node -> hash = Hash{}(new_node -> key)%mod;
             }
-            if (previous != nullptr)
-                previous -> next = new_node;
-            else
-                iterator::setBegin(new_node);
+            previous -> link = new_node;
+            new_node -> back_link = previous;
             addNode(new_node, new_node -> hash, new_tab);
             previous = new_node;
         }
-        previous -> link = nullptr;
-        iterator::setEnd(nullptr);
+        end_ = end_it;
+        end_.getPtr() -> back_link = previous;
+        previous -> link = end_.getPtr();
     }
 
     node_ptr findNode(const K& k) const noexcept {
-        size_t kHashed = Hash(k)%mod;
+        size_t kHashed = Hash{}(k)%mod;
         node_ptr n = tab[kHashed];
         while (n != nullptr) {
             if (n -> key == k) {
