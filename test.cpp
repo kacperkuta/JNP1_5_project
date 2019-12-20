@@ -15,6 +15,7 @@ int main() {
    m.erase(5);
    m.erase(12);
 m.erase(0);
+
     for (auto itr = m.begin(); itr != m.end(); ++itr) {
         std::cout << (*itr).first << std::endl;
     }
