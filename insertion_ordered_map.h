@@ -7,6 +7,12 @@
 
 #define MAP insertion_ordered_map
 
+class lookup_error : std::exception {
+    char const* what() const noexcept {
+        return "lookup_error";
+    }
+};
+
 template <class K, class V, class Hash = std::hash<K>>
 class MAP {
 public:
@@ -25,7 +31,7 @@ public:
         node (const node_ptr& other, node_ptr previous)
                 : hash(other -> hash)
                 , key(other -> key)
-                , val(other -> val)
+                , val(other -> val) // tu powinien byc jakiś kopiujący
                 , next(nullptr)
                 , link(nullptr)
                 , back_link(previous)
@@ -55,16 +61,25 @@ public:
         n -> link = n;
         n -> back_link = n;
         end_= iterator(n);
+        begin_ = iterator(end_.getPtr() -> link);
+
     }
 
-    MAP (const MAP& other) : mod(other.mod) {
-        my_size = other.my_size;
-        given_reference = false;
+    MAP (const MAP& other)
+        : mod(other.mod)
+        , my_size(other.my_size)
+        , given_reference(false)
+    {
         if (!other.given_reference) {
             tab = other.tab;
+            end_ = other.end_;
+            begin_ = other.begin_;
+
+
         } else {
-            tab = new node_ptr[other.mod];
-            hashedMapCopy(tab, other.mod, false);
+            tab_ptr t(new node_ptr[other.mod]);
+            tab = t;
+            hashedMapCopy(other.begin(), other.end(), tab, other.mod, true);
         }
     }
 
@@ -76,7 +91,9 @@ public:
     {
         other.tab = nullptr;
         other.my_size = 0;
-        end_ = other.end();
+        end_ = other.end_;
+        begin_ = other.begin_;
+
     }
 
     size_t size() noexcept {
@@ -88,13 +105,13 @@ public:
     }
 
     void erase(K const &k) {
-
         node_ptr n = findNode(k);
 
         if (n == nullptr) {
-            throw "lookup_error";
+            throw lookup_error();
         } else {
             checkSize();
+            n = findNode(k);
             n->back_link->link = n->link;
             n->link->back_link = n->back_link;
 
@@ -159,20 +176,13 @@ public:
             previous -> link = node(previous, previous);
             previous -> link -> link = nullptr;
             end_ = iterator(previous -> link);
+            begin_ = iterator(end_.getPtr() -> link);
+
         }
     }
 
-
     void insert(const K& k, const V& v) {
         checkSize();
-
-        if (tab.use_count() > 1) {
-            //std::cout << "test\n";
-            tab_ptr t(new node_ptr[mod]);
-            hashedMapCopy(t, mod, false);
-            tab = t;
-        }
-
         node_ptr n = findNode(k);
 
         if (n != nullptr) {
@@ -194,29 +204,41 @@ public:
             n2 -> link -> back_link = n2;
             addNode(n2, n2 -> hash, tab);
         }
+        begin_ = iterator(end().getPtr() -> link);
         assert(contains(k));
         given_reference = false;
+    }
+
+    V const& at(K const& k) const {
+        node_ptr n = findNode(k);
+        if (n == nullptr) {
+            throw lookup_error();
+        } else {
+            return n -> val;
+        }
     }
 
     V& at(K const& k) {
         node_ptr n = findNode(k);
         if (n == nullptr) {
-            throw "lookup_error";
+            throw lookup_error();
         } else {
-            if (tab.use_count() > 1) {
-                //std::cout << "test\n";
-                tab_ptr t(new node_ptr[mod]);
-                hashedMapCopy(t, mod, false);
-                tab = t;
-            }
+            checkSize();
             given_reference = true;
             return n -> val;
         }
     }
 
-    V const& at(K const& k) const {
-        std::cout << "testy\n";
-        return at(k);
+    V& operator[](const K& k) {
+        node_ptr n = findNode(k);
+        if (n == nullptr) {
+            insert(k, V());
+        } else {
+            checkSize();
+        }
+        n = findNode(k);
+        given_reference = true;
+        return n->val;
     }
 
     void clear() {
@@ -229,6 +251,8 @@ public:
         n -> link = n;
         n -> back_link = n;
         end_= iterator(n);
+        begin_ = iterator(end_.getPtr() -> link);
+
     }
 
     bool contains(const K& k) const noexcept {
@@ -243,7 +267,7 @@ public:
 
         explicit iterator(node_ptr& node) : ptr_(node) {};
 
-        const std::pair<K&, V&> operator* () {
+        const std::pair<const K&, const V&> operator* () {
             return std::pair<K&, V&>(ptr_ -> key, ptr_ -> val);
         }
 
@@ -270,12 +294,11 @@ public:
 
     };
 
-    iterator& begin() {
-        begin_ = iterator(end_.getPtr() -> link);
+    const iterator& begin() const {
         return begin_;
     }
 
-    iterator& end() {
+    const iterator& end() const {
         return end_;
     }
 
@@ -292,7 +315,6 @@ private:
     bool given_reference;
     iterator end_;
     iterator begin_;
-
 
     void addNode(node_ptr& node, size_t hash, tab_ptr& new_tab) {
         node_ptr n = new_tab[hash];
@@ -311,7 +333,7 @@ private:
         mod *= p;
         mod /= q;
         tab_ptr tab_n(new node_ptr[mod]);
-        hashedMapCopy(tab_n, mod, true);
+        hashedMapCopy(begin(), end(), tab_n, mod, true);
 
         tab.reset();
         tab = tab_n;
@@ -320,8 +342,17 @@ private:
     void checkSize() {
         if (my_size >= mod*3/4) {
             createResizedMap(2, 1);
+            given_reference = false;
         } else if (mod >= 32 && my_size <= mod/10) {
             createResizedMap(1, 2);
+            given_reference = false;
+        } else {
+            if (tab.use_count() > 1) {
+                tab_ptr t(new node_ptr[mod]);
+                hashedMapCopy(begin(), end(), t, mod, false);
+                tab = t;
+                given_reference = false;
+            }
         }
     }
 
@@ -329,10 +360,11 @@ private:
     //the nodes from actual tab. Linkage is saved. First and last element are
     //correctly set, so begin() and end() methods works properly for the new_tab
     //after function calling.
-    void hashedMapCopy(tab_ptr& new_tab, size_t mod, bool rehash) {
+    void hashedMapCopy(const iterator& beg, const iterator& end,
+            tab_ptr& new_tab, size_t mod, bool rehash) {
         node_ptr previous(new node(0));
         iterator end_it = iterator(previous);
-        for (iterator it = begin(); it != end(); ++it) {
+        for (iterator it = beg; it != end; ++it) {
             node_ptr new_node(new node(it.getPtr(), previous));
             if (rehash) {
                 new_node -> hash = Hash{}(new_node -> key)%mod;
@@ -344,6 +376,7 @@ private:
         }
         end_ = end_it;
         end_.getPtr() -> back_link = previous;
+        begin_ = iterator(end_.getPtr() -> link);
         previous -> link = end_.getPtr();
     }
 

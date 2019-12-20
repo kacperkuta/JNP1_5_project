@@ -5,25 +5,18 @@
 
 int main() {
     insertion_ordered_map<int, int> m;
-   for (int i = 0; i < 17; i++) {
-       m.insert(i, 6 - i);
-       //assert(!m.contains(i));
 
-   }
-    //m.erase(1);
-   //m.erase(5);
-   //m.erase(12);
-//m.erase(0);
-
-    const int& a = m.at(11);
-   std::cout << a << std::endl;
-/*
-    for (auto itr = m.begin(); itr != m.end(); ++itr) {
-        std::cout << (*itr).first << std::endl;
+    for (int i = 0; i < 15; i++) {
+        m.insert(i, 55);
     }
 
-   m.insert(0, 5);
-    auto itr = m.begin();
-    std::cout << (*itr).first;
-    */
+    int& v = m.at(44);
+
+    insertion_ordered_map<int, int> m2(m);
+
+    v = 10;
+
+    assert(m[4] == 10);
+    assert(m2[4] == 55);
+
 }
