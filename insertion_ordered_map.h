@@ -88,6 +88,7 @@ public:
     }
 
     void erase(K const &k) {
+
         node_ptr n = findNode(k);
 
         if (n == nullptr) {
@@ -97,8 +98,9 @@ public:
             n->back_link->link = n->link;
             n->link->back_link = n->back_link;
 
-            size_t kHash = Hash{}(k);
+            size_t kHash = Hash{}(k) % mod;
             node_ptr n2 = tab[kHash];
+
             if (n2 == n) {
                 tab[kHash] = n->next;
             } else {
@@ -118,13 +120,8 @@ public:
 
         //uzywam twojego at by policzyc o ile mam powiekszyc tablice
         for (auto it = other.begin(), end = other.end(); it != end; ++it) {
-            size_t kHash = Hash(it -> second) % mod;
-            node_ptr n = tab[kHash];
-            while (n != nullptr) {
-                if (n -> key == it -> first) {
-                    ++ sum;
-                }
-            }
+            if (findNode((*it).first) == nullptr)
+                sum++;
         }
 
         return sum;
@@ -133,13 +130,20 @@ public:
     void merge(insertion_ordered_map const &other) {
         size_t s = other.my_size;
         if (s > 0) {
-            //Sprawdzam rozmiar potrzebny do wydluzenia tablicy
             if (countNodesNotInMap(*other) + my_size >= mod*3/4) {
-                createResizedMap((countNodesNotInMap(*other) + my_size) / mod + 1 ,1);
+                // wydłużasz tutaj tablicę dokładnie do potrzebnego rozmiaru.
+                //Proponuję nie zliczać elementów, których nie ma, tylko wziąć
+                //np 3 razy max rozmiaru słowników. Popatrz, że słownik rozszerzamy juz przy 75% zapełnienia!
+                //(po to, żeby zapewnić możliwie dużą unikalność hashy)
+                createResizedMap((countNodesNotInMap(*other) + my_size) / mod + 1, 1);
             }
 
             node_ptr previous = end().getPtr();
             //dodaje te wartosci z kluczami z others ktore nie sa w this
+
+            //wykorzystaj funkcję findNode(K& k). Ona zwraca node_ptr z węzłem o kluczu k.
+            //Jak nie znajdzie to nullptr. Wstawiać możesz za pomocą inserta po prostu.
+            //nowy sposób na link i backlink opisałem na messengerze, także zobacz też na to, żeby działało poprawnie
             for (auto it = other.begin(), end = other.end(); it != end; ++it) {
                 size_t kHash = Hash(it -> second) % mod;
                 node_ptr n = tab[kHash];
@@ -160,7 +164,6 @@ public:
 
 
     void insert(const K& k, const V& v) {
-
         checkSize();
 
         if (tab.use_count() > 1) {
@@ -212,14 +215,20 @@ public:
     }
 
     V const& at(K const& k) const {
+        std::cout << "testy\n";
         return at(k);
     }
 
     void clear() {
-        tab_ptr tab = new node_ptr[16];
+        tab_ptr t(new node_ptr[16]);
+        tab = t;
         my_size = 0;
         mod = 16;
         given_reference = false;
+        node_ptr n(new node(0));
+        n -> link = n;
+        n -> back_link = n;
+        end_= iterator(n);
     }
 
     bool contains(const K& k) const noexcept {
