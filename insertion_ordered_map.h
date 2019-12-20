@@ -16,26 +16,31 @@ public:
     using node_ptr = std::shared_ptr<node>;
 
     typedef struct node {
+        size_t hash;
         K key;
         V val;
         node_ptr next;
         node_ptr link;
         node_ptr back_link;
 
-        node (const node& other, node_ptr previous) {
-            key = other.key;
-            val = other.val;
-            back_link = previous;
-        }
-
-        node (K key, V val, node_ptr next, node_ptr link, node_ptr back_link)
-                : key(key)
-                , val(val)
-                , next(next)
-                , link(link)
-                , back_link(back_link)
+        node (const node& other, node_ptr previous)
+            : hash(other.hash)
+            , key(other.key)
+            , val(other.val)
+            , next(next)
+            , link(link)
+            , back_link(previous)
         {}
 
+        node (K key, V val, node_ptr next, node_ptr link,
+                node_ptr back_link, size_t hash)
+            : key(key)
+            , val(val)
+            , next(next)
+            , link(link)
+            , back_link(back_link)
+            , hash(hash)
+        {}
 
     } node;
 
@@ -138,6 +143,7 @@ public:
         }
 
     private:
+
         node_ptr ptr_;
 
         static node_ptr begin_;
@@ -158,17 +164,56 @@ private:
     bool given_reference;
 
 
-    //simpleCopyOfMap requires table of size at least equal to other.mod
-    void simpleMapCopy(const MAP& other , tab_ptr new_tab) {
+    void addNode (node_ptr node, size_t hash, tab_ptr new_tab) {
+        node_ptr n = new_tab[hash];
+        if (n == nullptr) {
+            new_tab[hash] = node;
+        } else {
+            while (n -> next != nullptr) {
+                n = n -> next;
+            }
+            n -> next = node;
+        }
+        node -> next = nullptr;
+    }
 
+    //simpleCopyOfMap requires table of size at least equal to other.mod
+    //this function seems to be redundant
+    void simpleMapCopy(const MAP& other, tab_ptr new_tab) {
+        node_ptr previous = nullptr;
+        for (iterator it = iterator::begin(); it != iterator::end(); it++) {
+            node_ptr new_node(*it, previous);
+            if (previous != nullptr)
+                previous -> link = new_node;
+            else
+                iterator::setBegin(new_node);
+            addNode(new_node, new_node -> hash, new_tab);
+            previous = new_node;
+        }
+        previous -> link = nullptr;
+        iterator::setEnd(nullptr);
     }
 
     //Requires table of size at least equal to mod. new_tab is filled in with
     //the nodes from actual tab. Linkage is saved. First and last element are
     //correctly set, so begin() and end() methods works properly for the new_tab
     //after function calling.
-    void hashedMapCopy(tab_ptr new_tab, size_t mod) {
-
+    void hashedMapCopy(tab_ptr new_tab, size_t mod, bool rehash) {
+        node_ptr previous = nullptr;
+        for (iterator it = iterator::begin(); it != iterator::end(); it++) {
+            node_ptr new_node(*it, previous);
+            if (rehash) {
+                new_node -> hash = Hash(new_node -> key)%mod;
+            }
+            if (previous != nullptr)
+                previous -> next = new_node;
+            else
+                iterator::setBegin(new_node);
+            addNode(new_node, new_node -> hash, new_tab);
+            previous = new_node;
+        }
+        previous -> link = nullptr;
+        iterator::setEnd(nullptr);
     }
 
 };
