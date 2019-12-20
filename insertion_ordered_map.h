@@ -83,15 +83,23 @@ public:
         node_ptr n = findNode(k);
 
         if (n == nullptr) {
-            std::cout<<"lookup_error";
+            std::cout << "lookup_error";
         } else {
-            if (begin() -> first == k) {
-                //TODO
+            checkSize();
+            if (begin()->first == k) {
+                n->link->back_link = nullptr;
+                begin_ = new iterator(*(n->link));
+                n.reset();
 
-            } else if (end() -> first == k) {
-                //TODO
+            } else if (end()->first == k) {
+                n->back_link->link = nullptr;
+                end_ = new iterator(*(n->back_link));
+                n.reset();
+
             } else {
-                //TODO
+                n->back_link->link = n->link;
+                n->link->back_link = n->back_link;
+                n.reset();
             }
         }
     }
@@ -155,6 +163,8 @@ public:
         //Czy to na pewno zadziała? Bo begin() i end() zwracają obiekt klasy iterator
         iterator(const iterator& it): ptr_(it.ptr_) {}
 
+        explicit iterator(const node_ptr& ptr_): ptr_(ptr_) {}
+
         const std::pair<K&, V&> operator* () {
             return std::make_pair(ptr_ -> key, ptr_ -> val);
         }
@@ -187,6 +197,9 @@ public:
     iterator& end() {
         return end_;
     }
+
+
+
 
 private:
 
