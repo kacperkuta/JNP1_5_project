@@ -10,6 +10,7 @@
 template <class K, class V, class Hash = std::hash<K>>
 class MAP {
 public:
+
     struct node;
 
     using node_ptr = std::shared_ptr<node>;
