@@ -104,7 +104,7 @@ public:
 
         //ten konstruktor kopiujący przyjmuje jako argument node_ptr, a nie iterator
         //Czy to na pewno zadziała? Bo begin() i end() zwracają obiekt klasy iterator
-        explicit iterator(node_ptr it): ptr_(it) {}
+        explicit iterator(const iterator& it): ptr_(it.ptr_) {}
 
         const std::pair<K&, V&> operator* () {
             return std::make_pair(ptr_ -> key, ptr_ -> val);
@@ -123,35 +123,24 @@ public:
             return !(*this == it);
         }
 
-        // w begin i end jeżeli oznaczymy konstruktor jako explicit to zwrócenie
-        //begin i end chyba nie zadziałają - mają one zwracać obiekt klasy iterator,
-        //a nie node_ptr
-        iterator& begin() {
-            return begin_;
-        }
-
-        iterator& end() {
-            return end_;
-        }
-
-        static void setBegin(node_ptr begin) {
-            begin_ = begin;
-        }
-
-        static void setEnd(node_ptr end) {
-            end_ = end;
-        }
-
     private:
-
         node_ptr ptr_;
-
-        static node_ptr begin_;
-
-        static node_ptr end_;
     };
 
+    iterator& begin() {
+        return begin_;
+    }
+
+    iterator& end() {
+        return end_;
+    }
+
+
 private:
+
+    iterator begin_;
+
+    iterator end_;
 
     using tab_ptr = std::shared_ptr<node_ptr[]>;
 
@@ -175,6 +164,16 @@ private:
             n -> next = node;
         }
         node -> next = nullptr;
+    }
+
+    tab_ptr& createResizedMap() {
+        mod *= 2;
+        tab_ptr tab_n = new node_ptr [mod];
+        simpleMapCopy(*this, tab_n);
+        hashedMapCopy(tab_n, mod, true);
+
+        tab.reset();
+        tab = tab_n;
     }
 
     //simpleCopyOfMap requires table of size at least equal to other.mod
