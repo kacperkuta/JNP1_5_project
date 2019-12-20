@@ -101,6 +101,52 @@ public:
                 n->link->back_link = n->back_link;
                 n.reset();
             }
+            -- my_size;
+        }
+    }
+
+    size_t countNodesNotInMap(insertion_ordered_map const &other) {
+        size_t sum = 0;
+
+        //uzywam twojego at by policzyc o ile mam powiekszyc tablice
+        for (auto it = other.begin(), end = other.end(); it != end; ++it) {
+            size_t kHash = Hash(it -> second) % mod;
+            node_ptr n = tab[kHash];
+            while (n != nullptr) {
+                if (n -> key == it -> first) {
+                    ++ sum;
+                }
+            }
+        }
+
+        return sum;
+    }
+
+    void merge(insertion_ordered_map const &other) {
+        size_t s = other.my_size;
+        if (s > 0) {
+            //Sprawdzam rozmiar potrzebny do wydluzenia tablicy
+            if (countNodesNotInMap(*other) + my_size >= mod*3/4) {
+                createResizedMap((countNodesNotInMap(*other) + my_size) / mod + 1 ,1);
+            }
+
+            node_ptr previous = end().getPtr();
+            //dodaje te wartosci z kluczami z others ktore nie sa w this
+            for (auto it = other.begin(), end = other.end(); it != end; ++it) {
+                size_t kHash = Hash(it -> second) % mod;
+                node_ptr n = tab[kHash];
+                while (n != nullptr) {
+                    if (n -> key == it -> first) {
+                        node_ptr new_node(it.getPtr(), previous);
+                        previous -> link = new_node;
+                        addNode(new_node, new_node -> hash, tab);
+                        previous = new_node;
+                    }
+                }
+            }
+            previous -> link = node(previous, previous);
+            previous -> link -> link = nullptr;
+            end_ = iterator(previous -> link);
         }
     }
 
