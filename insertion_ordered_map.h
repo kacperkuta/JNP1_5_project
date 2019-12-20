@@ -79,6 +79,23 @@ public:
         return my_size == 0;
     }
 
+    void erase(K const &k) {
+        node_ptr n = findNode(k);
+
+        if (n == nullptr) {
+            std::cout<<"lookup_error";
+        } else {
+            if (begin() -> first == k) {
+                //TODO
+
+            } else if (end() -> first == k) {
+                //TODO
+            } else {
+                //TODO
+            }
+        }
+    }
+
     void insert(const K& k, const V& v) {
         checkSize();
         if (tab.use_count() > 1) {
@@ -153,6 +170,10 @@ public:
 
         bool operator!=(const iterator& it) {
             return !(*this == it);
+        }
+
+        const node_ptr &getPtr() const {
+            return ptr_;
         }
 
     private:
