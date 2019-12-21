@@ -195,7 +195,6 @@ private:
             if (rehash) {
                 new_node -> hash = Hash{}(new_node -> key)%mod;
             }
-
             previous -> link = new_node;
             new_node -> back_link = previous;
             addNode(new_node, new_node -> hash, new_tab);
@@ -353,7 +352,7 @@ public:
         swap(first.given_reference, second.given_reference);
     }
 
-    insertion_ordered_map &operator=(insertion_ordered_map other) {
+    insertion_ordered_map& operator=(insertion_ordered_map other) {
         swap(*this, other);
         return *this;
     }
@@ -397,42 +396,29 @@ public:
 
     size_t countNodesNotInMap(insertion_ordered_map const &other) {
         size_t sum = 0;
-
-        //uzywam twojego at by policzyc o ile mam powiekszyc tablice
         for (auto it = other.begin(), end = other.end(); it != end; ++it) {
             if (findNode((*it).first) == nullptr)
                 sum++;
         }
-
         return sum;
     }
 
     void merge(insertion_ordered_map const &other) {
+        MAP copy = *this;
         size_t s = other.my_size;
+        copy.my_size += countNodesNotInMap(other);
         if (s > 0) {
-            if (countNodesNotInMap(other) + my_size >= mod*3/4) {
-                // wydłużasz tutaj tablicę dokładnie do potrzebnego rozmiaru.
-                //Proponuję nie zliczać elementów, których nie ma, tylko wziąć
-                //np 3 razy max rozmiaru słowników. Popatrz, że słownik rozszerzamy juz przy 75% zapełnienia!
-                //(po to, żeby zapewnić możliwie dużą unikalność hashy)
-
-                //tu nie zwieszkam o rowna ilosc tylko o okolo 2 razy. I tez zeby nie przesadzac ze zwiekszaniem bo np mozna potem dostac cos w stylu ze beda ci mergowac caly czas tablice z takimi samymi kluczami to ci sie tablica mocno powiekszy po nic
-                createResizedMap(((countNodesNotInMap(other) + my_size) / mod) * 2 , 1);
-            }
-
-            //dodaje te wartosci z kluczami z others ktore nie sa w this
-
-            //wykorzystaj funkcję findNode(K& k). Ona zwraca node_ptr z węzłem o kluczu k.
-            //Jak nie znajdzie to nullptr. Wstawiać możesz za pomocą inserta po prostu.
-            //nowy sposób na link i backlink opisałem na messengerze, także zobacz też na to, żeby działało poprawnie
+            copy.checkSize();
             for (auto it = other.begin(), end = other.end(); it != end; ++it) {
                 node_ptr n = findNode((*it).first);
 
                 if (n == nullptr) {
-                    insert((*it).first, (*it).second);
+                    copy.insert((*it).first, (*it).second);
+                    copy.my_size--;
                 }
             }
         }
+        swap(*this, copy);
     }
 
     void insert(const K& k, const V& v) {
