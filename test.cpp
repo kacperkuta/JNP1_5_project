@@ -16,7 +16,8 @@ try {
    m.insert(3, 5);
 } catch(lookup_error& e) {}
 
-//std::cout << m.getMod();
-//assert(m.begin() == m2.begin());
+
+auto it = m.begin();
+std::cout << it->first;
 
 }

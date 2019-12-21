@@ -384,37 +384,28 @@ public:
     void merge(insertion_ordered_map const &other) {
         size_t s = other.my_size;
         if (s > 0) {
-            if (countNodesNotInMap(*other) + my_size >= mod*3/4) {
+            if (countNodesNotInMap(other) + my_size >= mod*3/4) {
                 // wydłużasz tutaj tablicę dokładnie do potrzebnego rozmiaru.
                 //Proponuję nie zliczać elementów, których nie ma, tylko wziąć
                 //np 3 razy max rozmiaru słowników. Popatrz, że słownik rozszerzamy juz przy 75% zapełnienia!
                 //(po to, żeby zapewnić możliwie dużą unikalność hashy)
-                createResizedMap((countNodesNotInMap(*other) + my_size) / mod + 1, 1);
+
+                //tu nie zwieszkam o rowna ilosc tylko o okolo 2 razy. I tez zeby nie przesadzac ze zwiekszaniem bo np mozna potem dostac cos w stylu ze beda ci mergowac caly czas tablice z takimi samymi kluczami to ci sie tablica mocno powiekszy po nic
+                createResizedMap(((countNodesNotInMap(other) + my_size) / mod) * 2 , 1);
             }
 
-            node_ptr previous = end().getPtr();
             //dodaje te wartosci z kluczami z others ktore nie sa w this
 
             //wykorzystaj funkcję findNode(K& k). Ona zwraca node_ptr z węzłem o kluczu k.
             //Jak nie znajdzie to nullptr. Wstawiać możesz za pomocą inserta po prostu.
             //nowy sposób na link i backlink opisałem na messengerze, także zobacz też na to, żeby działało poprawnie
             for (auto it = other.begin(), end = other.end(); it != end; ++it) {
-                size_t kHash = Hash(it -> second) % mod;
-                node_ptr n = tab[kHash];
-                while (n != nullptr) {
-                    if (n -> key == it -> first) {
-                        node_ptr new_node(it.getPtr(), previous);
-                        previous -> link = new_node;
-                        addNode(new_node, new_node -> hash, tab);
-                        previous = new_node;
-                    }
+                node_ptr n = findNode((*it).first);
+
+                if (n == nullptr) {
+                    insert((*it).first, (*it).second);
                 }
             }
-            previous -> link = node(previous, previous);
-            previous -> link -> link = nullptr;
-            end_ = iterator(previous -> link);
-            begin_ = iterator(end_.getPtr() -> link);
-
         }
     }
 
