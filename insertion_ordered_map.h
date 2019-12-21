@@ -109,11 +109,12 @@ public:
     };
 
 private:
-
+/*
+     * Wyjsciowa wartosc mod: 16, zwiekszana jest ona gdy my_size przekroczy
+     * 75 procent wartosci mod, zmniejszana gdy my_size przekroczy 10 procent
+     * wartosci mod
+     */
     size_t my_size;
-    //default value of mod is 16.
-    // It increases twice when my_size is greater than 75% of mod.
-    // Decreases twice when my_size is lower than 10% of mod.
     size_t mod;
     tab_ptr tab;
     bool given_reference;
@@ -134,6 +135,11 @@ private:
         node -> next = nullptr;
     }
 
+    /*
+     * Powieksza/pomniejsza tab w zaleznosci od p/q.
+     * Przenosi elementy do nowej tablicy.
+     * Silnie odporna na wyjątki.
+     */
     void createResizedMap(unsigned p, unsigned q) {
         guard g(this, mod);
         mod *= p;
@@ -145,13 +151,18 @@ private:
         g.success();
     }
 
+    /*
+     * Sprawdza czy nalezy powiekszyc/pomniejszyc tab.
+     * W razie potrzeby robi to.
+     * Silnie odporna na wyjątki.
+     */
     void checkSize() {
         if (tab.use_count() > 1) {
             guard g(this, mod);
             if (my_size >= mod*3/4)
-                mod *= 2;
+                mod *= 2*mod > 2 * my_size ? 2 : 2 * my_size / mod + 1;
             else if (mod > 16 && my_size <= mod/10)
-                mod /= 2;
+                mod /= 3;
             tab_ptr t(new node_ptr[mod]);
             hashedMapCopy(begin(), end(), t, mod, false);
             g.success();
@@ -160,12 +171,15 @@ private:
         } else if (my_size >= mod*3/4) {
             createResizedMap(2, 1);
             given_reference = false;
-        } else if (mod > 16 && my_size <= mod/10) {
+        } else if (mod > 16 && my_size <= mod/3) {
             createResizedMap(1, 2);
             given_reference = false;
         }
     }
 
+    /*
+     * Zwraca liczbę elementów, które są w other ale nie sa w this
+     */
     size_t countNodesNotInMap(insertion_ordered_map const &other) {
         size_t sum = 0;
         for (auto it = other.begin(), end = other.end(); it != end; ++it) {
@@ -174,7 +188,6 @@ private:
         }
         return sum;
     }
-
 
     void hashedMapMove(tab_ptr& new_tab) noexcept {
 
@@ -366,14 +379,24 @@ public:
         return *this;
     }
 
+    /*
+     * Zwraca liczbę par klucz-wartość w słowniku
+     */
     size_t size() const noexcept {
         return my_size;
     }
 
+    /*
+     * Zwraca true, gdy słownik jest pusty, a false w przeciwnym przypadku.
+     */
     bool empty() const noexcept {
         return my_size == 0;
     }
 
+    /*
+     * Usuwa wartość znajdującą się pod podanym kluczem k. Jeśli taki klucz
+     * nie istnieje, to podnosi wyjątek lookup_error.
+     */
     void erase(K const &k) {
         node_ptr n = findNode(k);
 
@@ -403,24 +426,36 @@ public:
         }
     }
 
+    /*
+     * Scalanie słowników. Dodaje kopie wszystkich elementów podanego słownika other
+     * do bieżącego słownika (this). Wartości pod kluczami już obecnymi w bieżącym
+     * słowniku nie są nadpisywane. Klucze ze słownika other pojawiają się w porządku
+     * iteracji na końcu, zachowując kolejność względem siebie.
+     * Silnie odporna na wyjątki.
+     */
     void merge(insertion_ordered_map const &other) {
-        MAP copy = *this;
         size_t s = other.my_size;
-        copy.my_size += countNodesNotInMap(other);
         if (s > 0) {
+            MAP copy = *this;
+            copy.my_size += countNodesNotInMap(other);
             copy.checkSize();
             for (auto it = other.begin(), end = other.end(); it != end; ++it) {
                 node_ptr n = findNode((*it).first);
-
-                if (n == nullptr) {
-                    copy.insert((*it).first, (*it).second);
+                copy.insert((*it).first, (*it).second);
+                if (n == nullptr)
                     copy.my_size--;
-                }
             }
+            swap(*this, copy);
         }
-        swap(*this, copy);
     }
 
+    /*
+    * Jeśli klucz k nie jest przechowywany w słowniku, to wstawia wartość v
+    * pod kluczem k i zwraca true. Jeśli klucz k już jest w słowniku, to
+    * wartość pod nim przypisana nie zmienia się, ale klucz zostaje
+    * przesunięty na koniec porządku iteracji, a metoda zwraca false.
+     * Silnie odporna na wyjątki.
+    */
     void insert(const K& k, const V& v) {
 
         node_ptr n2(new node(k, v, nullptr, nullptr, nullptr, 0));
@@ -448,7 +483,12 @@ public:
         given_reference = false;
     }
 
-    V const& at(K const& k) const noexcept {
+    /*
+     *  Zwraca const referencję na wartość przechowywaną W słowniku pod podanym
+     *  kluczem k. Jeśli taki klucz nie istnieje w słowniku, to podnosi
+     *  wyjątek lookup_error.
+     */
+    V const& at(K const& k) const {
         node_ptr n = findNode(k);
         if (n == nullptr) {
             throw lookup_error();
@@ -457,6 +497,11 @@ public:
         }
     }
 
+    /*
+     *  Zwraca referencję na wartość przechowywaną W słowniku pod podanym
+     *  kluczem k. Jeśli taki klucz nie istnieje w słowniku, to podnosi
+     *  wyjątek lookup_error.
+     */
     V& at(K const& k) {
         node_ptr n = findNode(k);
         if (n == nullptr) {
@@ -468,6 +513,12 @@ public:
         }
     }
 
+    /*
+     * Zwraca referencję na wartość znajdującą się w słowniku pod podanym
+     * kluczem k. Wywołanie tego operatora z kluczem nieobecnym w słowniku
+     * powoduje dodanie pod tym kluczem domyślnej wartości typu V.
+     * Silnie odporna na wyjątki.
+     */
     V& operator[](const K& k) {
         node_ptr n = findNode(k);
         if (n == nullptr) {
@@ -480,6 +531,10 @@ public:
         return n->val;
     }
 
+    /*
+     *  Usuwa wszystkie elementy ze słownika.
+     *  Silnie odporna na wyjątki.
+     */
     void clear() {
         tab_ptr t(new node_ptr[16]);
         node_ptr n(new node(0));
@@ -496,15 +551,26 @@ public:
         begin_ = iterator(end_.getPtr() -> link);
     }
 
+    /*
+     * Sprawdzenie klucza. Zwraca wartość boolowską mówiącą, czy podany
+     * klucz k jest w słowniku
+     */
     bool contains(const K& k) const noexcept {
         return findNode(k) != nullptr;
     }
 
-    const iterator& begin() const {
+    /*
+     * Funkcja przekazuje iterator wskazujący na pierwszy element
+     * w porządku iteracji.
+     */
+    const iterator& begin() const noexcept {
         return begin_;
     }
-
-    const iterator& end() const {
+    /*
+     * Funkcja przekazuje iterator wskazujący na atrapę dummy na końcu
+     * porządku iteracji.
+     */
+    const iterator& end() const noexcept {
         return end_;
     }
 };

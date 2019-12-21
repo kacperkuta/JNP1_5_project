@@ -11,34 +11,73 @@ namespace {
 
 int main()
 {
-    insertion_ordered_map<int, int> m1;
-    insertion_ordered_map<int, int> m2(m1);
-    insertion_ordered_map<int, int> m3(m2);
-    insertion_ordered_map<int, int> m4(m1);
+    int keys[] = {3, 1, 2};
 
-    assert(m1.begin() == m2.begin());
-    assert(m2.begin() == m4.begin());
-    assert(m1.begin() == m3.begin());
+    insertion_ordered_map<int, int> iom1 = f({});
 
-    m1.insert(4, 5);
-    m1.insert(3, 2);
+    for (int i = 0; i < 3; ++i) {
+        iom1[keys[i]] = i;
+    }
+    auto &ref = iom1[3];
 
-    assert(m2.begin() == m4.begin());
-    assert(m3.begin() == m4.begin());
-    assert(m1.contains(4));
-    assert(!m2.contains(4));
-    assert((!m3.contains(3)));
+    insertion_ordered_map<int, int> iom2(iom1); // Wykonuje się pełna kopia. Dlaczego?
+    insertion_ordered_map<int, int> iom3;
+    iom3 = iom2;
 
-    m2.merge(m1);
+    ref = 10;
+    assert(iom1[3] == 10);
+    assert(iom2[3] != 10);
 
-    assert(m2.contains(3));
-    assert(m2.contains(4));
-    assert((!m3.contains(3)));
-    assert((!m4.contains(4)));
+    iom2.erase(3); // Przy wyłączonych asercjach obiekt iom2 tutaj dokonuje kopii i przestaje współdzielić dane z iom3.
+    assert(iom2.size() == 2);
+    assert(!iom2.contains(3));
+    assert(iom2.contains(2));
 
-    m2.insert(7, 7);
-    assert(m2.contains(7));
-    assert(!m1.contains(7));
+    assert(iom3.size() == 3);
+    assert(iom3.contains(3));
 
+    iom2.insert(4, 10);
+    iom2.insert(1, 10);
+    assert(iom2.size() == 3);
+    insertion_ordered_map<int, int> const iom4 = iom2;
+    {
+        int order[] = {2, 4, 1};
+        int values[] = {2, 10, 1};
+        int i = 0;
+        for (auto it = iom2.begin(), end = iom2.end(); it != end; ++it, ++i)
+            assert(it->first == order[i] && it->second == values[i]);
+        i = 0;
+        for (auto it = iom4.begin(), end = iom4.end(); it != end; ++it, ++i)
+            assert(it->first == order[i] && it->second == values[i]);
+    }
+
+    auto piom5 = std::make_unique<insertion_ordered_map<int, int>>();
+    piom5->insert(4, 0);
+    assert(piom5->at(4) == 0);
+    auto iom6(*piom5);
+    piom5.reset();
+    assert(iom6.at(4) == 0);
+    iom6[5] = 5;
+    iom6[6] = 6;
+
+    iom2.merge(iom6);
+    {
+        int order[] = {2, 1, 4, 5, 6};
+        int values[] = {2, 1, 10, 5, 6};
+        int i = 0;
+        for (auto it = iom2.begin(), end = iom2.end(); it != end; ++it, ++i)
+            assert(it->first == order[i] && it->second == values[i]);
+    }
+
+    std::swap(iom1, iom2);
+    std::vector<insertion_ordered_map<int, int>> vec;
+    for (int i = 0; i < 100000; i++) {
+        iom1.insert(i, i);
+    }
+    for (int i = 0; i < 1000000; i++) {
+        vec.push_back(iom1);  // Wszystkie obiekty w vec współdzielą dane.
+    }
+
+    return 0;
 }
 
