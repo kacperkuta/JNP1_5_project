@@ -74,7 +74,6 @@ public:
 
         explicit iterator(node_ptr& node) : ptr_(node) {};
 
-
         const iterator& operator++() {
             ptr_ = ptr_ -> link;
             return *this;
@@ -122,7 +121,7 @@ private:
     iterator begin_;
     node_ptr dummy;
 
-    void addNode(node_ptr& node, size_t hash, tab_ptr& new_tab) {
+    void addNode(node_ptr& node, size_t hash, tab_ptr& new_tab) noexcept {
         node_ptr n = new_tab[hash];
         if (n == nullptr) {
             new_tab[hash] = node;
@@ -166,6 +165,16 @@ private:
             given_reference = false;
         }
     }
+
+    size_t countNodesNotInMap(insertion_ordered_map const &other) {
+        size_t sum = 0;
+        for (auto it = other.begin(), end = other.end(); it != end; ++it) {
+            if (findNode((*it).first) == nullptr)
+                sum++;
+        }
+        return sum;
+    }
+
 
     void hashedMapMove(tab_ptr& new_tab) noexcept {
 
@@ -392,15 +401,6 @@ public:
             begin_ = iterator(end_.getPtr()->link);
             given_reference = false;
         }
-    }
-
-    size_t countNodesNotInMap(insertion_ordered_map const &other) {
-        size_t sum = 0;
-        for (auto it = other.begin(), end = other.end(); it != end; ++it) {
-            if (findNode((*it).first) == nullptr)
-                sum++;
-        }
-        return sum;
     }
 
     void merge(insertion_ordered_map const &other) {
