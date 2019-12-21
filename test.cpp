@@ -1,28 +1,22 @@
 #include <iostream>
 #include <cassert>
+#include <vector>
 #include "insertion_ordered_map.h"
 
 
 int main() {
 
     insertion_ordered_map<int, int> m;
-    for (int i = 0; i < 100000; i++) {
-        m.insert(i, 5);
-    }
-
-    for (int i = 0; i < 10000; i++) {
-        m.erase(i + 6778);
-    }
+    m.insert(30, 5);
 
     insertion_ordered_map<int, int> m2(m);
 
-    //m.erase(11);
-    //m.insert(11, 6);
+try {
+//for (int i = 0; i < 13; i++)
+   m.insert(3, 5);
+} catch(lookup_error& e) {}
 
-    //assert(m.at(11) == 6);
-    //assert(m2.at(11) == 5);
-    m.clear();
+//std::cout << m.getMod();
+//assert(m.begin() == m2.begin());
 
-
-    //std::shared_ptr<int[]> p(new int[15]);
 }
