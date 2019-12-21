@@ -4,6 +4,8 @@
 #include <cstdlib>
 #include <functional>
 #include <memory>
+#include <cassert>
+#include <iostream>
 
 #define MAP insertion_ordered_map
 
@@ -72,13 +74,19 @@ public:
 
         explicit iterator(node_ptr& node) : ptr_(node) {};
 
-        const std::pair<const K&, const V&> operator* () {
-            return std::pair<K&, V&>(ptr_ -> key, ptr_ -> val);
-        }
 
         const iterator& operator++() {
             ptr_ = ptr_ -> link;
             return *this;
+        }
+
+        std::pair<K, V>* operator->() {
+            values = std::make_pair(ptr_ -> key, ptr_ -> val);
+            return &values;
+        }
+
+        const std::pair<const K&, const V&> operator* () {
+            return std::pair<K&, V&>(ptr_ -> key, ptr_ -> val);
         }
 
         bool operator==(const iterator& it) const noexcept {
@@ -94,6 +102,8 @@ public:
         }
 
     private:
+
+        std::pair<K, V> values;
 
         node_ptr ptr_;
 
@@ -330,6 +340,22 @@ public:
 
     ~MAP () {
         deleteMap();
+    }
+
+    friend void swap(MAP& first, MAP& second) {
+        using std::swap;
+        swap(first.my_size, second.my_size);
+        swap(first.tab, second.tab);
+        swap(first.begin_, second.begin_);
+        swap(first.end_, second.end_);
+        swap(first.dummy, second.dummy);
+        swap(first.mod, second.mod);
+        swap(first.given_reference, second.given_reference);
+    }
+
+    insertion_ordered_map &operator=(insertion_ordered_map other) {
+        swap(*this, other);
+        return *this;
     }
 
     size_t size() const noexcept {
