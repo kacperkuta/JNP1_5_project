@@ -50,10 +50,10 @@ private:
         {}
 
         explicit node (size_t hash)
-            : hash(hash)
-            , link(nullptr)
-            , back_link(nullptr)
-            , next(nullptr)
+                : hash(hash)
+                , link(nullptr)
+                , back_link(nullptr)
+                , next(nullptr)
         {}
 
     } node;
@@ -244,17 +244,17 @@ private:
         bool suc;
 
         explicit guard(MAP* m, size_t mod)
-            : old_mod(mod)
-            , to_delete(nullptr)
-            , m(m)
-            , suc(false)
+                : old_mod(mod)
+                , to_delete(nullptr)
+                , m(m)
+                , suc(false)
         {}
 
         explicit guard(node_ptr to_delete)
-            : old_mod(0)
-            , to_delete(to_delete)
-            , m(nullptr)
-            , suc(false)
+                : old_mod(0)
+                , to_delete(to_delete)
+                , m(nullptr)
+                , suc(false)
         {}
 
         void success() {
@@ -283,10 +283,10 @@ private:
 public:
 
     MAP ()
-        : my_size(0)
-        , tab(new node_ptr[16])
-        , given_reference(false)
-        , mod(16)
+            : my_size(0)
+            , tab(new node_ptr[16])
+            , given_reference(false)
+            , mod(16)
     {
         node_ptr n(new node(0));
         n -> link = n;
@@ -297,9 +297,9 @@ public:
     }
 
     MAP (const MAP& other)
-        : mod(other.mod)
-        , my_size(other.my_size)
-        , given_reference(false)
+            : mod(other.mod)
+            , my_size(other.my_size)
+            , given_reference(false)
     {
         if (!other.given_reference) {
             tab = other.tab;
@@ -315,11 +315,11 @@ public:
     }
 
     MAP (MAP&& other) noexcept
-        : my_size(other.my_size)
-        , tab(other.tab)
-        , given_reference(other.given_reference)
-        , mod(other.mod)
-        , dummy(other.dummy)
+            : my_size(other.my_size)
+            , tab(other.tab)
+            , given_reference(other.given_reference)
+            , mod(other.mod)
+            , dummy(other.dummy)
     {
         other.tab = nullptr;
         other.my_size = 0;
