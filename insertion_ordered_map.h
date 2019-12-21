@@ -348,24 +348,23 @@ private:
         mod /= q;
 
         tab_ptr tab_n(new node_ptr[mod]);
-        hashedMapCopy(begin(), end(), tab_n, mod, true);
+        hashedMapMove(tab_n);
         tab = tab_n;
     }
 
     void checkSize() {
+        if (tab.use_count() > 1) {
+            tab_ptr t(new node_ptr[mod]);
+            hashedMapCopy(begin(), end(), t, mod, false);
+            tab = t;
+            given_reference = false;
+        }
         if (my_size >= mod*3/4) {
             createResizedMap(2, 1);
             given_reference = false;
-        } else if (mod >= 32 && my_size <= mod/10) {
+        } else if (mod > 16 && my_size <= mod/10) {
             createResizedMap(1, 2);
             given_reference = false;
-        } else {
-            if (tab.use_count() > 1) {
-                tab_ptr t(new node_ptr[mod]);
-                hashedMapCopy(begin(), end(), t, mod, false);
-                tab = t;
-                given_reference = false;
-            }
         }
     }
 
@@ -373,8 +372,25 @@ private:
     //the nodes from actual tab. Linkage is saved. First and last element are
     //correctly set, so begin() and end() methods works properly for the new_tab
     //after function calling.
+    void hashedMapMove(tab_ptr& new_tab) {
+
+        node_ptr n = begin().getPtr();
+        while (n != end().getPtr()) {
+            n -> next = nullptr;
+            n = n -> link;
+        }
+
+        n = begin().getPtr();
+        while (n != end().getPtr()) {
+            n -> hash = Hash{}(n->key) % mod;
+            addNode(n, n->hash, new_tab);
+            n = n -> link;
+        }
+
+    }
+
     void hashedMapCopy(const iterator& beg, const iterator& end,
-            tab_ptr& new_tab, size_t mod, bool rehash) {
+                       tab_ptr& new_tab, size_t mod, bool rehash) {
 
         node_ptr previous(new node(0));
         node_ptr end_node = previous;
