@@ -62,7 +62,7 @@ public:
         n -> back_link = n;
         end_= iterator(n);
         begin_ = iterator(end_.getPtr() -> link);
-
+        dummy = n;
     }
 
     MAP (const MAP& other)
@@ -74,12 +74,12 @@ public:
             tab = other.tab;
             end_ = other.end_;
             begin_ = other.begin_;
-
-
+            dummy = other.dummy;
         } else {
             tab_ptr t(new node_ptr[other.mod]);
+            tab = nullptr;
+            hashedMapCopy(other.begin(), other.end(), t, other.mod, true);
             tab = t;
-            hashedMapCopy(other.begin(), other.end(), tab, other.mod, true);
         }
     }
 
@@ -88,12 +88,18 @@ public:
             , tab(other.tab)
             , given_reference(other.given_reference)
             , mod(other.mod)
+            , dummy(other.dummy)
     {
         other.tab = nullptr;
         other.my_size = 0;
         end_ = other.end_;
         begin_ = other.begin_;
 
+    }
+
+    ~MAP () {
+        deleteMap();
+        //dummy.reset();
     }
 
     size_t size() noexcept {
@@ -126,7 +132,7 @@ public:
                 }
                 n2->next = n2->next->next;
             }
-            n.reset();
+            deletePointer(n);
             --my_size;
             given_reference = false;
         }
@@ -265,6 +271,10 @@ public:
 
         iterator(const iterator& it): ptr_(it.ptr_) {}
 
+        ~iterator() {
+            ptr_ = nullptr;
+        }
+
         explicit iterator(node_ptr& node) : ptr_(node) {};
 
         const std::pair<const K&, const V&> operator* () {
@@ -315,6 +325,7 @@ private:
     bool given_reference;
     iterator end_;
     iterator begin_;
+    node_ptr dummy;
 
     void addNode(node_ptr& node, size_t hash, tab_ptr& new_tab) {
         node_ptr n = new_tab[hash];
@@ -332,10 +343,9 @@ private:
     void createResizedMap(unsigned p, unsigned q) {
         mod *= p;
         mod /= q;
+
         tab_ptr tab_n(new node_ptr[mod]);
         hashedMapCopy(begin(), end(), tab_n, mod, true);
-
-        tab.reset();
         tab = tab_n;
     }
 
@@ -362,8 +372,10 @@ private:
     //after function calling.
     void hashedMapCopy(const iterator& beg, const iterator& end,
             tab_ptr& new_tab, size_t mod, bool rehash) {
+
         node_ptr previous(new node(0));
-        iterator end_it = iterator(previous);
+        node_ptr end_node = previous;
+
         for (iterator it = beg; it != end; ++it) {
             node_ptr new_node(new node(it.getPtr(), previous));
             if (rehash) {
@@ -374,9 +386,13 @@ private:
             addNode(new_node, new_node -> hash, new_tab);
             previous = new_node;
         }
-        end_ = end_it;
+
+        deleteMap();
+
+        end_ = iterator(end_node);
         end_.getPtr() -> back_link = previous;
         begin_ = iterator(end_.getPtr() -> link);
+        dummy = end_node;
         previous -> link = end_.getPtr();
     }
 
@@ -391,6 +407,27 @@ private:
             }
         }
         return nullptr;
+    }
+
+    void deleteMap() {
+        if (tab == nullptr)
+            return;
+        if (tab.use_count() == 1) {
+            node_ptr n = dummy -> link, next = n -> link;
+            while (n != dummy) {
+                deletePointer(n);
+                n = next;
+                if (n)
+                    next = n -> link;
+            }
+            deletePointer(dummy);
+        }
+    }
+
+    void deletePointer(node_ptr n) {
+        n -> link = nullptr;
+        n -> back_link = nullptr;
+        n -> next = nullptr;
     }
 
 };
