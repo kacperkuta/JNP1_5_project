@@ -72,13 +72,15 @@ public:
 
         explicit iterator(node_ptr& node) : ptr_(node) {};
 
-        const std::pair<const K&, const V&> operator* () {
-            return std::pair<K&, V&>(ptr_ -> key, ptr_ -> val);
-        }
 
         const iterator& operator++() {
             ptr_ = ptr_ -> link;
             return *this;
+        }
+
+        std::pair<K, V> *operator->() {
+            values = std::make_pair(ptr_ -> key, ptr_ -> val);
+            return &values;
         }
 
         bool operator==(const iterator& it) const noexcept {
@@ -94,6 +96,8 @@ public:
         }
 
     private:
+
+        std::pair<K, V> values;
 
         node_ptr ptr_;
 
@@ -374,7 +378,7 @@ public:
 
         //uzywam twojego at by policzyc o ile mam powiekszyc tablice
         for (auto it = other.begin(), end = other.end(); it != end; ++it) {
-            if (findNode((*it).first) == nullptr)
+            if (findNode(it->first) == nullptr)
                 sum++;
         }
 
@@ -400,10 +404,10 @@ public:
             //Jak nie znajdzie to nullptr. Wstawiać możesz za pomocą inserta po prostu.
             //nowy sposób na link i backlink opisałem na messengerze, także zobacz też na to, żeby działało poprawnie
             for (auto it = other.begin(), end = other.end(); it != end; ++it) {
-                node_ptr n = findNode((*it).first);
+                node_ptr n = findNode(it->first);
 
                 if (n == nullptr) {
-                    insert((*it).first, (*it).second);
+                    insert(it->first, it->second);
                 }
             }
         }
