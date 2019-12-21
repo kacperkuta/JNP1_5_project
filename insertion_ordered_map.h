@@ -1,16 +1,20 @@
+/*
+ * insertion_ordered_map
+ * by Kacper Kuta and Franciszek Bieleń
+ * created on 18 dec 2019
+ */
+
 #ifndef INSERTION_ORDERED_MAP_H
 #define INSERTION_ORDERED_MAP_H
 
 #include <cstdlib>
 #include <functional>
 #include <memory>
-#include <cassert>
-#include <iostream>
 
 #define MAP insertion_ordered_map
 
 class lookup_error : std::exception {
-    char const* what() const noexcept {
+    const char* what() const noexcept {
         return "lookup_error";
     }
 };
@@ -26,36 +30,33 @@ private:
 
     typedef struct node {
         size_t hash;
-        K key;
-        V val;
+        std::pair<K, V> mapping;
         node_ptr next;
         node_ptr link;
         node_ptr back_link;
 
-        node (const node_ptr& other, node_ptr previous)
-                : hash(other -> hash)
-                , key(other -> key)
-                , val(other -> val) // tu powinien byc jakiś kopiujący
+        node(const node_ptr& other, node_ptr previous)
+                : hash(other->hash)
+                , mapping(std::pair<K, V>(other->mapping))
                 , next(nullptr)
                 , link(nullptr)
                 , back_link(previous)
         {}
 
-        node (K key, V val, node_ptr next, node_ptr link,
+        node(K key, V val, node_ptr next, node_ptr link,
               node_ptr back_link, size_t hash)
-                : key(key)
-                , val(val)
+                : hash(hash)
+                , mapping(std::pair<K, V>(key, val))
                 , next(next)
                 , link(link)
                 , back_link(back_link)
-                , hash(hash)
         {}
 
-        explicit node (size_t hash)
+        explicit node(size_t hash)
                 : hash(hash)
+                , next(nullptr)
                 , link(nullptr)
                 , back_link(nullptr)
-                , next(nullptr)
         {}
 
     } node;
@@ -75,17 +76,16 @@ public:
         explicit iterator(node_ptr& node) : ptr_(node) {};
 
         const iterator& operator++() {
-            ptr_ = ptr_ -> link;
+            ptr_ = ptr_->link;
             return *this;
         }
 
         std::pair<K, V>* operator->() {
-            values = std::make_pair(ptr_ -> key, ptr_ -> val);
-            return &values;
+            return &(ptr_->mapping);
         }
 
-        const std::pair<const K&, const V&> operator* () {
-            return std::pair<K&, V&>(ptr_ -> key, ptr_ -> val);
+        const std::pair<const K, const V> operator* () {
+            return ptr_->mapping;
         }
 
         bool operator==(const iterator& it) const noexcept {
@@ -102,17 +102,15 @@ public:
 
     private:
 
-        std::pair<K, V> values;
-
         node_ptr ptr_;
 
     };
 
 private:
-/*
+    /*
      * Wyjsciowa wartosc mod: 16, zwiekszana jest ona gdy my_size przekroczy
      * 75 procent wartosci mod, zmniejszana gdy my_size przekroczy 10 procent
-     * wartosci mod
+     * wartosci mod. Mod to liczba używanych hashów.
      */
     size_t my_size;
     size_t mod;
@@ -122,17 +120,21 @@ private:
     iterator begin_;
     node_ptr dummy;
 
+    size_t basic_mod = 16;
+    unsigned mult = 2;
+    unsigned div = 3;
+
     void addNode(node_ptr& node, size_t hash, tab_ptr& new_tab) noexcept {
         node_ptr n = new_tab[hash];
         if (n == nullptr) {
             new_tab[hash] = node;
         } else {
-            while (n -> next != nullptr) {
-                n = n -> next;
+            while (n->next != nullptr) {
+                n = n->next;
             }
-            n -> next = node;
+            n->next = node;
         }
-        node -> next = nullptr;
+        node->next = nullptr;
     }
 
     /*
@@ -160,8 +162,9 @@ private:
         if (tab.use_count() > 1) {
             guard g(this, mod);
             if (my_size >= mod*3/4)
-                mod *= 2*mod > 2 * my_size ? 2 : 2 * my_size / mod + 1;
-            else if (mod > 16 && my_size <= mod/10)
+                mod *= mult * mod > mult * my_size ?
+                        mult : mult * my_size / mod + 1;
+            else if (mod > basic_mod && my_size <= mod/10)
                 mod /= 3;
             tab_ptr t(new node_ptr[mod]);
             hashedMapCopy(begin(), end(), t, mod, false);
@@ -169,10 +172,10 @@ private:
             tab = t;
             given_reference = false;
         } else if (my_size >= mod*3/4) {
-            createResizedMap(2, 1);
+            createResizedMap(mult, 1);
             given_reference = false;
-        } else if (mod > 16 && my_size <= mod/3) {
-            createResizedMap(1, 2);
+        } else if (mod > basic_mod && my_size <= mod/10) {
+            createResizedMap(1, div);
             given_reference = false;
         }
     }
@@ -193,15 +196,15 @@ private:
 
         node_ptr n = begin().getPtr();
         while (n != end().getPtr()) {
-            n -> next = nullptr;
-            n = n -> link;
+            n->next = nullptr;
+            n = n->link;
         }
 
         n = begin().getPtr();
         while (n != end().getPtr()) {
-            n -> hash = Hash{}(n->key) % mod;
+            n->hash = Hash{}(n->mapping.first) % mod;
             addNode(n, n->hash, new_tab);
-            n = n -> link;
+            n = n->link;
         }
     }
 
@@ -215,11 +218,11 @@ private:
         for (iterator it = beg; it != end; ++it) {
             node_ptr new_node(new node(it.getPtr(), previous));
             if (rehash) {
-                new_node -> hash = Hash{}(new_node -> key)%mod;
+                new_node->hash = Hash{}(new_node->mapping.first) % mod;
             }
-            previous -> link = new_node;
-            new_node -> back_link = previous;
-            addNode(new_node, new_node -> hash, new_tab);
+            previous->link = new_node;
+            new_node->back_link = previous;
+            addNode(new_node, new_node->hash, new_tab);
             previous = new_node;
         }
         g.success();
@@ -227,21 +230,20 @@ private:
         deleteMap();
 
         end_ = iterator(end_node);
-        end_.getPtr() -> back_link = previous;
-        begin_ = iterator(end_.getPtr() -> link);
+        end_.getPtr()->back_link = previous;
+        begin_ = iterator(end_.getPtr()->link);
         dummy = end_node;
-        previous -> link = end_.getPtr();
-
+        previous->link = end_.getPtr();
     }
 
     node_ptr findNode(const K& k) const noexcept {
         size_t kHashed = Hash{}(k)%mod;
         node_ptr n = tab[kHashed];
         while (n != nullptr) {
-            if (n -> key == k) {
+            if (n->mapping.first == k) {
                 return n;
             } else {
-                n = n -> next;
+                n = n->next;
             }
         }
         return nullptr;
@@ -251,21 +253,32 @@ private:
         if (tab == nullptr)
             return;
         if (tab.use_count() == 1) {
-            node_ptr n = dummy -> link, next = n -> link;
+            node_ptr n = dummy->link, next = n->link;
             while (n != dummy) {
                 deletePointer(n);
                 n = next;
                 if (n)
-                    next = n -> link;
+                    next = n->link;
             }
             deletePointer(dummy);
         }
     }
 
     void deletePointer(node_ptr n) {
-        n -> link = nullptr;
-        n -> back_link = nullptr;
-        n -> next = nullptr;
+        n->link = nullptr;
+        n->back_link = nullptr;
+        n->next = nullptr;
+    }
+
+    friend void swap(MAP& first, MAP& second) {
+        using std::swap;
+        swap(first.my_size, second.my_size);
+        swap(first.tab, second.tab);
+        swap(first.begin_, second.begin_);
+        swap(first.end_, second.end_);
+        swap(first.dummy, second.dummy);
+        swap(first.mod, second.mod);
+        swap(first.given_reference, second.given_reference);
     }
 
     typedef struct guard {
@@ -296,7 +309,7 @@ private:
             if (!suc) {
                 node_ptr next = nullptr;
                 if (to_delete != nullptr)
-                    next = to_delete->next;
+                    next = to_delete->link;
                 while (to_delete != nullptr) {
                     to_delete->link = nullptr;
                     to_delete->back_link = nullptr;
@@ -313,23 +326,23 @@ private:
 
 public:
 
-    MAP ()
+    MAP()
             : my_size(0)
+            , mod(16)
             , tab(new node_ptr[16])
             , given_reference(false)
-            , mod(16)
     {
         node_ptr n(new node(0));
-        n -> link = n;
-        n -> back_link = n;
+        n->link = n;
+        n->back_link = n;
         end_= iterator(n);
-        begin_ = iterator(end_.getPtr() -> link);
+        begin_ = iterator(end_.getPtr()->link);
         dummy = n;
     }
 
-    MAP (const MAP& other)
-            : mod(other.mod)
-            , my_size(other.my_size)
+    MAP(const MAP& other)
+            : my_size(other.my_size)
+            , mod(other.mod)
             , given_reference(false)
     {
         if (!other.given_reference) {
@@ -345,33 +358,21 @@ public:
         }
     }
 
-    MAP (MAP&& other) noexcept
+    MAP(MAP&& other) noexcept
             : my_size(other.my_size)
+            , mod(other.mod)
             , tab(other.tab)
             , given_reference(other.given_reference)
-            , mod(other.mod)
+            , end_(other.end_)
+            , begin_(other.begin_)
             , dummy(other.dummy)
     {
         other.tab = nullptr;
         other.my_size = 0;
-        end_ = other.end_;
-        begin_ = other.begin_;
-
     }
 
-    ~MAP () {
+    ~MAP() {
         deleteMap();
-    }
-
-    friend void swap(MAP& first, MAP& second) {
-        using std::swap;
-        swap(first.my_size, second.my_size);
-        swap(first.tab, second.tab);
-        swap(first.begin_, second.begin_);
-        swap(first.end_, second.end_);
-        swap(first.dummy, second.dummy);
-        swap(first.mod, second.mod);
-        swap(first.given_reference, second.given_reference);
     }
 
     insertion_ordered_map& operator=(insertion_ordered_map other) {
@@ -457,29 +458,27 @@ public:
      * Silnie odporna na wyjątki.
     */
     void insert(const K& k, const V& v) {
-
         node_ptr n2(new node(k, v, nullptr, nullptr, nullptr, 0));
         checkSize();
         node_ptr n = findNode(k);
 
         if (n != nullptr) {
-            n -> link -> back_link = n -> back_link;
+            n->link->back_link = n->back_link;
             n->back_link->link = n->link;
             n->back_link = end().getPtr()->back_link;
-            n -> link = end().getPtr();
-            end().getPtr() -> back_link -> link = n;
-            end().getPtr() -> back_link = n;
+            n->link = end().getPtr();
+            end().getPtr()->back_link->link = n;
+            end().getPtr()->back_link = n;
         } else {
             my_size++;
-            n2 -> hash = Hash{}(k)%mod;
-            n2 -> link = end().getPtr();
-            n2 -> back_link = end().getPtr() -> back_link;
-            n2 -> back_link -> link = n2;
-            n2 -> link -> back_link = n2;
-            addNode(n2, n2 -> hash, tab);
+            n2->hash = Hash{}(k)%mod;
+            n2->link = end().getPtr();
+            n2->back_link = end().getPtr()->back_link;
+            n2->back_link->link = n2;
+            n2->link->back_link = n2;
+            addNode(n2, n2->hash, tab);
         }
-        begin_ = iterator(end().getPtr() -> link);
-        assert(contains(k));
+        begin_ = iterator(end().getPtr()->link);
         given_reference = false;
     }
 
@@ -493,7 +492,7 @@ public:
         if (n == nullptr) {
             throw lookup_error();
         } else {
-            return n -> val;
+            return n->val;
         }
     }
 
@@ -509,7 +508,7 @@ public:
         } else {
             checkSize();
             given_reference = true;
-            return n -> val;
+            return n->mapping.second;
         }
     }
 
@@ -528,7 +527,7 @@ public:
         }
         n = findNode(k);
         given_reference = true;
-        return n->val;
+        return n->mapping.second;
     }
 
     /*
@@ -544,11 +543,11 @@ public:
         my_size = 0;
         mod = 16;
         given_reference = false;
-        n -> link = n;
-        n -> back_link = n;
+        n->link = n;
+        n->back_link = n;
         dummy = n;
         end_= iterator(n);
-        begin_ = iterator(end_.getPtr() -> link);
+        begin_ = iterator(end_.getPtr()->link);
     }
 
     /*
@@ -566,6 +565,7 @@ public:
     const iterator& begin() const noexcept {
         return begin_;
     }
+
     /*
      * Funkcja przekazuje iterator wskazujący na atrapę dummy na końcu
      * porządku iteracji.
