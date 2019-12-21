@@ -15,7 +15,12 @@ int main() {
 
     insertion_ordered_map<int, int> m2(m);
 
-    m2.insert(11, 5);
+    m.erase(11);
+    m.insert(11, 6);
+
+    assert(m.at(11) == 6);
+    assert(m2.at(11) == 5);
+    m.clear();
 
 
     //std::shared_ptr<int[]> p(new int[15]);

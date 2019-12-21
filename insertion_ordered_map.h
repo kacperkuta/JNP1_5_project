@@ -134,6 +134,7 @@ public:
             }
             deletePointer(n);
             --my_size;
+            begin_ = iterator(end_.getPtr()->link);
             given_reference = false;
         }
     }
@@ -188,6 +189,7 @@ public:
     }
 
     void insert(const K& k, const V& v) {
+
         checkSize();
         node_ptr n = findNode(k);
 
@@ -248,6 +250,7 @@ public:
     }
 
     void clear() {
+        deleteMap();
         tab_ptr t(new node_ptr[16]);
         tab = t;
         my_size = 0;
@@ -256,9 +259,9 @@ public:
         node_ptr n(new node(0));
         n -> link = n;
         n -> back_link = n;
+        dummy = n;
         end_= iterator(n);
         begin_ = iterator(end_.getPtr() -> link);
-
     }
 
     bool contains(const K& k) const noexcept {
@@ -378,9 +381,11 @@ private:
 
         for (iterator it = beg; it != end; ++it) {
             node_ptr new_node(new node(it.getPtr(), previous));
+
             if (rehash) {
                 new_node -> hash = Hash{}(new_node -> key)%mod;
             }
+
             previous -> link = new_node;
             new_node -> back_link = previous;
             addNode(new_node, new_node -> hash, new_tab);
@@ -394,6 +399,7 @@ private:
         begin_ = iterator(end_.getPtr() -> link);
         dummy = end_node;
         previous -> link = end_.getPtr();
+
     }
 
     node_ptr findNode(const K& k) const noexcept {
